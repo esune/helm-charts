@@ -1,3 +1,15 @@
+## 1.0.4 (2026-10-10)
+
+### ⚠ BREAKING CHANGES
+
+* **acapy:** replace Bitnami PostgreSQL with CloudPirates Postgres (#95)
+
+### Features
+
+* **acapy:** add configurable startupProbe ([#143](https://github.com/esune/helm-charts/issues/143)) ([355dcfb](https://github.com/esune/helm-charts/commit/355dcfba1cc38e80b751d39cba981fca4571b752))
+* **acapy:** Add flag to disable wallet seed secret creation and env var mounting ([#37](https://github.com/esune/helm-charts/issues/37)) ([12b75b0](https://github.com/esune/helm-charts/commit/12b75b054957fae71caae0d3c746d177e3647c1c))
+* **acapy:** remove deprecated bitnami helper function references ([#38](https://github.com/esune/helm-charts/issues/38)) ([8a146f8](https://github.com/esune/helm-charts/commit/8a146f8671a418c1e54d8c7c309957d694f60ebd))
+* **acapy:** replace Bitnami PostgreSQL with CloudPirates Postgres ([#95](https://github.com/esune/helm-charts/issues/95)) ([6aa80a7](https://github.com/esune/helm-charts/commit/6aa80a753336218e803ee68f3e0a7301ce2c0677))
 ## [1.0.4](https://github.com/openwallet-foundation/helm-charts/compare/acapy-1.0.3...acapy-1.0.4) (2026-07-08)
 ## [1.0.3](https://github.com/openwallet-foundation/helm-charts/compare/acapy-1.0.2...acapy-1.0.3) (2026-04-24)
 ## [1.0.2](https://github.com/openwallet-foundation/helm-charts/compare/acapy-1.0.1...acapy-1.0.2) (2026-04-22)
