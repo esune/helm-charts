@@ -1,3 +1,27 @@
+## 2.1.2 (2026-10-22)
+
+### ⚠ BREAKING CHANGES
+
+* **vc-authn-oidc:** replace Bitnami MongoDB with CloudPirates MongoDB (#90)
+
+### Features
+
+* **vc-authn-oidc:** 2.4.0 release; Upgrade Acapy chart to 1.0.0; Requires data migration ([#114](https://github.com/esune/helm-charts/issues/114)) ([1a3f8a3](https://github.com/esune/helm-charts/commit/1a3f8a34e478f4e0d1b44c2e7623cb9936455035))
+* **vc-authn-oidc:** add external redis support ([#63](https://github.com/esune/helm-charts/issues/63)) ([1eb7a6c](https://github.com/esune/helm-charts/commit/1eb7a6cde6e5d94a3ffed1877cc11ab504e06903))
+* **vc-authn-oidc:** add networkpolicy for cleanup cronjob ([#60](https://github.com/esune/helm-charts/issues/60)) ([a5e5103](https://github.com/esune/helm-charts/commit/a5e51035426e60757ebf3d80d0b3c4274d7e27ba))
+* **vc-authn-oidc:** add WebVH plugin support ([#103](https://github.com/esune/helm-charts/issues/103)) ([27d04b3](https://github.com/esune/helm-charts/commit/27d04b3a1dc84d0fc4444cfce42a7b35c12bac86))
+* **vc-authn-oidc:** add WebVH plugin support ([#97](https://github.com/esune/helm-charts/issues/97)) ([985bf33](https://github.com/esune/helm-charts/commit/985bf332c4fe2b6b7160227e0abf016d49eb154e))
+* **vc-authn-oidc:** allow specifying external MongoDB ([#84](https://github.com/esune/helm-charts/issues/84)) ([2ab762d](https://github.com/esune/helm-charts/commit/2ab762d82fc4361eb4b652883b8a1904367cc0dd))
+* **vc-authn-oidc:** disable webvh auto-setup ([#144](https://github.com/esune/helm-charts/issues/144)) ([106445c](https://github.com/esune/helm-charts/commit/106445c757341391f1ad7ad0e05dab307a1f73b1))
+* **vc-authn-oidc:** replace Bitnami MongoDB with CloudPirates MongoDB ([#90](https://github.com/esune/helm-charts/issues/90)) ([eccfa3d](https://github.com/esune/helm-charts/commit/eccfa3dddb010deeef70c0042643376ddc2cc006))
+* **vc-authn-oidc:** update acapy subchart, webhook url config ([#126](https://github.com/esune/helm-charts/issues/126)) ([6750fb7](https://github.com/esune/helm-charts/commit/6750fb707150cb0ad42c4650f46cb45cc806abb3))
+
+### Bug Fixes
+
+* **secrets:** update api secret creation logic and move webhook secret for acapy to single getorgenerate ([#141](https://github.com/esune/helm-charts/issues/141)) ([be6ae04](https://github.com/esune/helm-charts/commit/be6ae04e3b1810d14a2f7f3da193308d5ef29aad))
+* **vc-authn-oidc:** Add session affinity configuration to service ([#99](https://github.com/esune/helm-charts/issues/99)) ([fa78f39](https://github.com/esune/helm-charts/commit/fa78f39870f620c1eed04a85cda56cab1fcab0de))
+* **vc-authn-oidc:** cronjob selector labels ([#81](https://github.com/esune/helm-charts/issues/81)) ([0c9235b](https://github.com/esune/helm-charts/commit/0c9235b8c5bebc53d452adde55909ca1e74064a2))
+* **vc-authn-oidc:** enable debug-webhooks in acapy agent ([#112](https://github.com/esune/helm-charts/issues/112)) ([b1d8adc](https://github.com/esune/helm-charts/commit/b1d8adc9563cdf68131ba708cb202d960b2da928))
 ## [2.1.2](https://github.com/openwallet-foundation/helm-charts/compare/vc-authn-oidc-2.1.1...vc-authn-oidc-2.1.2) (2026-07-10)
 
 ### Bug Fixes
