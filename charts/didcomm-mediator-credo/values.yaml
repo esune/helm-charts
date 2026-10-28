@@ -130,7 +130,7 @@ networkPolicy:
   ## @param networkPolicy.ingress.podSelector [object] Pod selector label that is allowed to access the Tenant proxy pods.
   ingress:
     enabled: false
-    namespaceSelector: []
+    namespaceSelector: {}
     ## Example:
     # network.openshift.io/policy-group: ingress
     podSelector: {}
