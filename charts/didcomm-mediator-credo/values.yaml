@@ -240,16 +240,11 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
-## @param volumes [array] List of volume claims to be created
-volumes:
-  - name: cache-volume
-    emptyDir:
-      sizeLimit: 1Gi
+## @param volumes [array] Additional volumes for the mediator pod
+volumes: []
 
-## @param volumeMounts [array] List of volumes to be mounted in the container
-volumeMounts:
-  - name: cache-volume
-    mountPath: /.cache
+## @param volumeMounts [array] Additional volume mounts for the mediator container
+volumeMounts: []
 
 ## @param nodeSelector Node labels for pods assignment
 ## ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -280,3 +275,24 @@ postgresql:
   # app.kubernetes.io/instance: mediator-credo-db
   ## @param postgresql.servicePort PostgreSQL service port to be used in the network policy
   servicePort: 5432
+
+## @section Persistence
+## The mediator's home directory, where Credo keeps its data including a SQLite wallet.
+## Not needed when the wallet is stored in PostgreSQL; an emptyDir is used when disabled.
+##
+persistence:
+  ## @param persistence.enabled Store the mediator's home directory on a PersistentVolumeClaim. Requires a single replica.
+  enabled: false
+  ## @param persistence.existingClaim Name of an existing PersistentVolumeClaim to use instead of creating one
+  existingClaim: ""
+  ## @param persistence.storageClass Storage class of the PersistentVolumeClaim, the cluster default when empty
+  storageClass: ""
+  ## @param persistence.accessModes Access modes of the PersistentVolumeClaim
+  accessModes:
+    - ReadWriteOnce
+  ## @param persistence.size Size of the PersistentVolumeClaim
+  size: 1Gi
+  ## @param persistence.annotations Annotations for the PersistentVolumeClaim
+  annotations: {}
+  ## @param persistence.mountPath Mount path of the home directory, also set as HOME
+  mountPath: /home/mediator

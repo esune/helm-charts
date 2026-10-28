@@ -94,8 +94,8 @@ The mediator chart assumes a PostgreSQL deployment is available. The appropriate
 | `autoscaling.minReplicas`                    | Minimum number of replicas                                                                                                                                                                | `1`                                                             |
 | `autoscaling.maxReplicas`                    | Maximum number of replicas                                                                                                                                                                | `100`                                                           |
 | `autoscaling.targetCPUUtilizationPercentage` | Target CPU utilization percentage                                                                                                                                                         | `80`                                                            |
-| `volumes`                                    | List of volume claims to be created                                                                                                                                                       | `[]`                                                            |
-| `volumeMounts`                               | List of volumes to be mounted in the container                                                                                                                                            | `[]`                                                            |
+| `volumes`                                    | Additional volumes for the mediator pod                                                                                                                                                   | `[]`                                                            |
+| `volumeMounts`                               | Additional volume mounts for the mediator container                                                                                                                                       | `[]`                                                            |
 | `nodeSelector`                               | Node labels for pods assignment                                                                                                                                                           | `{}`                                                            |
 | `tolerations`                                | Tolerations for pods assignment                                                                                                                                                           | `[]`                                                            |
 | `affinity`                                   | Affinity for pods assignment                                                                                                                                                              | `{}`                                                            |
@@ -107,3 +107,15 @@ The mediator chart assumes a PostgreSQL deployment is available. The appropriate
 | `postgresql.enabled`        | Enable network policy for PostgreSQL access                                    | `false` |
 | `postgresql.selectorLabels` | Labels selecting the postgresql resources to give the mediator pods access to. | `[]`    |
 | `postgresql.servicePort`    | PostgreSQL service port to be used in the network policy                       | `5432`  |
+
+### Persistence
+
+| Name                        | Description                                                                                | Value               |
+| --------------------------- | ------------------------------------------------------------------------------------------ | ------------------- |
+| `persistence.enabled`       | Store the mediator's home directory on a PersistentVolumeClaim. Requires a single replica. | `false`             |
+| `persistence.existingClaim` | Name of an existing PersistentVolumeClaim to use instead of creating one                   | `""`                |
+| `persistence.storageClass`  | Storage class of the PersistentVolumeClaim, the cluster default when empty                 | `""`                |
+| `persistence.accessModes`   | Access modes of the PersistentVolumeClaim                                                  | `["ReadWriteOnce"]` |
+| `persistence.size`          | Size of the PersistentVolumeClaim                                                          | `1Gi`               |
+| `persistence.annotations`   | Annotations for the PersistentVolumeClaim                                                  | `{}`                |
+| `persistence.mountPath`     | Mount path of the home directory, also set as HOME                                         | `/home/mediator`    |

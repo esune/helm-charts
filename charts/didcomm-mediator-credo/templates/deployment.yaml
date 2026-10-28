@@ -1,3 +1,6 @@
+{{- if and .Values.persistence.enabled (or .Values.autoscaling.enabled (gt (int .Values.replicaCount) 1)) }}
+{{- fail "persistence.enabled requires a single replica: disable autoscaling and set replicaCount to 1, or store the wallet in PostgreSQL and disable persistence" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8,9 +11,13 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
-  {{- with .Values.strategy }}
+  {{- if .Values.strategy }}
   strategy:
-    {{- toYaml . | nindent 4 }}
+    {{- toYaml .Values.strategy | nindent 4 }}
+  {{- else if .Values.persistence.enabled }}
+  # A ReadWriteOnce volume can't be attached to the new pod while the old one holds it
+  strategy:
+    type: Recreate
   {{- end }}
   selector:
     matchLabels:
@@ -65,14 +72,19 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.volumeMounts }}
           volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.environment }}
+            {{- end }}
           env:
+            # Credo keeps its data, including a SQLite wallet, under $HOME
+            - name: HOME
+              value: {{ .Values.persistence.mountPath | quote }}
+            {{- with .Values.environment }}
             {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- end }}
             - name: WALLET_KEY
               valueFrom:
                 secretKeyRef:
@@ -88,10 +100,17 @@ spec:
                 secretKeyRef:
                   name: {{ include "mediator.fullname" . }}-agent
                   key: firebase-apps              # This is a JSON string that contains an array of Firebase app configurations.
-      {{- with .Values.volumes }}
       volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "mediator.fullname" .)) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
