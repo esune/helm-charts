@@ -1,3 +1,4 @@
+{{- include "mediator.validateEnvironment" . }}
 {{- if and .Values.persistence.enabled (or .Values.autoscaling.enabled (gt (int .Values.replicaCount) 1)) }}
 {{- fail "persistence.enabled requires a single replica: disable autoscaling and set replicaCount to 1, or store the wallet in PostgreSQL and disable persistence" }}
 {{- end }}
@@ -85,21 +86,18 @@ spec:
             {{- with .Values.environment }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-            - name: WALLET_KEY
+            - name: ASKAR__STORE_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mediator.fullname" . }}-agent
                   key: wallet-key
-            - name: PICKUP_SETTINGS
+            {{- if .Values.pushNotifications.firebase.enabled }}
+            - name: PUSH_NOTIFICATIONS__FIREBASE__PROJECTS
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mediator.fullname" . }}-agent
-                  key: pickup-connection-json     # This is a JSON string that contains the settings for the pickup repository.
-            - name: FIREBASE_APPS
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mediator.fullname" . }}-agent
-                  key: firebase-apps              # This is a JSON string that contains an array of Firebase app configurations.
+                  key: firebase-apps              # JSON array of Firebase project configurations
+            {{- end }}
       volumes:
         - name: data
           {{- if .Values.persistence.enabled }}

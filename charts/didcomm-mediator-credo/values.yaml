@@ -21,7 +21,7 @@ image:
   # This sets the pull policy for images.
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "d9ff9cb"
+  tag: "fc575ad"
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 ## @param imagePullSecrets [array]
@@ -149,52 +149,28 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
-## @param environment [array] Variables to be passed to the container
-## ref: https://kubernetes.io/docs/concepts/configuration/overview/
+## @param environment [array] Variables to be passed to the container. See the mediator's README for every option.
+## The wallet key (ASKAR__STORE_KEY) and Firebase projects (PUSH_NOTIFICATIONS__FIREBASE__PROJECTS) are
+## added by the chart from its secret. Variables read by the 0.5.x mediator are rejected.
+## ref: https://github.com/openwallet-foundation/didcomm-mediator-credo#configuration
 environment:
   - name: LOG_LEVEL
-    value: "2"
+    value: info
   - name: AGENT_PORT
     value: "3000"
   - name: AGENT_NAME
     value: Mediator
   - name: AGENT_ENDPOINTS
     value: "http://example.com,wss://example.com"
-  - name: WALLET_NAME
+  # Without ASKAR__DATABASE__TYPE=postgres the wallet is a SQLite file under persistence.mountPath
+  - name: ASKAR__STORE_ID
     value: mediator-wallet
-  - name: POSTGRES_USER
-    valueFrom:
-      secretKeyRef:
-        name: mediator-credo-db
-        key: user
-  - name: POSTGRES_HOST
-    value: mediator-credo-db
-  - name: POSTGRES_ADMIN_USER
-    value: postgres
-  - name: POSTGRES_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: mediator-credo-db
-        key: password
-  - name: POSTGRES_ADMIN_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: mediator-credo-db
-        key: admin-password
-  - name: PICKUP_TYPE
-    value: null       # The default is undefined which means it will not use a pickup repository. Additionally, it can be set to 'postgres'.
-  - name: PICKUP_STRATEGY
+  - name: MESSAGE_PICKUP__FORWARDING_STRATEGY
     value: DirectDelivery
   - name: CREATE_NEW_INVITATION
-    value: "false"       # used to create a new invitation on startup. The default is 'false'.
-  - name: GOAL_CODE
-    value: "vc.mediate"      # used to set the goal code for the invitation. The default is 'vc.mediate'
-  - name: USE_PUSH_NOTIFICATIONS
-    value: "false"       # used to globally enable/disable push notifications. The default is 'false'.
-  - name: PUSH_NOTIFICATION_TITLE
-    value: "You have a new message"
-  - name: PUSH_NOTIFICATION_BODY
-    value: "Open your app to read it"
+    value: "false"
+  - name: INVITATION_GOAL_CODE
+    value: "vc.mediate"
   - name: NODE_OPTIONS
     value: null      # Example: --max-old-space-size=512 to limit memory usage to 512MB
   - name: MALLOC_CONF
@@ -282,7 +258,7 @@ postgresql:
 ##
 persistence:
   ## @param persistence.enabled Store the mediator's home directory on a PersistentVolumeClaim. Requires a single replica.
-  enabled: false
+  enabled: true
   ## @param persistence.existingClaim Name of an existing PersistentVolumeClaim to use instead of creating one
   existingClaim: ""
   ## @param persistence.storageClass Storage class of the PersistentVolumeClaim, the cluster default when empty
@@ -296,3 +272,10 @@ persistence:
   annotations: {}
   ## @param persistence.mountPath Mount path of the home directory, also set as HOME
   mountPath: /home/mediator
+
+## @section Push notifications
+##
+pushNotifications:
+  firebase:
+    ## @param pushNotifications.firebase.enabled Pass the Firebase projects from the chart secret's `firebase-apps` key. Requires PUSH_NOTIFICATIONS__FIREBASE__NOTIFICATION_TITLE and PUSH_NOTIFICATIONS__FIREBASE__NOTIFICATION_BODY in `environment`.
+    enabled: false
