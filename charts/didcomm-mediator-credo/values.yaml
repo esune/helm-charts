@@ -4,6 +4,13 @@
 ## @param replicaCount This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 
+## @param strategy Deployment update strategy. Use `type: Recreate` when no pod of the previous version may run alongside the new one, e.g. for a storage upgrade.
+## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+strategy: {}
+
+## @param terminationGracePeriodSeconds Seconds the mediator gets to release its live sessions and close connections after SIGTERM
+terminationGracePeriodSeconds: 30
+
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 ## @param image.repository
 ## @param image.pullPolicy

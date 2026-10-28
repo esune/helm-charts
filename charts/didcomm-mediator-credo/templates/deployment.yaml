@@ -8,6 +8,10 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "mediator.selectorLabels" . | nindent 6 }}
@@ -28,6 +32,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "mediator.serviceAccountName" . }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -82,7 +87,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mediator.fullname" . }}-agent
-                  key: firebase-apps              # This is a JSON string that contains an array of Firebase app configurations. 
+                  key: firebase-apps              # This is a JSON string that contains an array of Firebase app configurations.
       {{- with .Values.volumes }}
       volumes:
         {{- toYaml . | nindent 8 }}
