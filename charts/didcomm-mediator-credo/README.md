@@ -96,9 +96,7 @@ After the upgrade completes, remove the override to restore backend-aware defaul
 
 ## Shutdown
 
-The Credo 0.7 mediator releases queue resources before shutting down the agent on `SIGTERM`. Cleanup has a total deadline of 25 seconds; if it hangs, the mediator logs the active cleanup step and exits with code `1`. Repeated signals do not restart cleanup or extend the deadline.
-
-Keep `terminationGracePeriodSeconds` greater than 25 seconds plus any `preStop` delay. The default of 30 seconds leaves 5 seconds beyond the application deadline, and this chart does not configure a `preStop` hook. The watchdog requires a responsive Node.js event loop; Kubernetes remains responsible for terminating a process with a blocked event loop.
+`terminationGracePeriodSeconds` controls how long Kubernetes waits after sending `SIGTERM` before forcefully terminating the pod. The default image (`fc575ad`) does not include the mediator's queue cleanup handler or bounded shutdown watchdog, so this setting alone does not provide application-level graceful cleanup. Increase the grace period only when using an image whose signal-handling behavior requires it.
 
 ## Upgrading from chart 0.6.x
 
@@ -132,8 +130,8 @@ The first start of the new version upgrades the wallet's storage, which can't be
 | `replicaCount`                               | This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/                                              | `1`                                                             |
 | `walletDatabaseType`                         | Backend declaration for validation and rollout defaults: auto, sqlite or postgres; required for external backend configuration; does not configure the application | `auto` |
 | `global.compatibility.openshift.adaptSecurityContext` | Remove fixed user/group IDs on OpenShift: auto, force or disabled | `auto` |
-| `strategy`                                   | Deployment update strategy override. Empty selects RollingUpdate for PostgreSQL or Recreate for SQLite. Use explicit Recreate for incompatible storage upgrades. | `{}` |
-| `terminationGracePeriodSeconds`              | Pod termination budget; must exceed the mediator's 25-second shutdown deadline plus any preStop delay                                                                                     | `30`                                                            |
+| `strategy`                                   | Deployment update strategy override. Empty selects RollingUpdate for PostgreSQL (requires `persistence.enabled=false`) or Recreate for SQLite. Use explicit Recreate for incompatible storage upgrades. | `{}` |
+| `terminationGracePeriodSeconds`              | Kubernetes pod termination grace period. This does not add application-level SIGTERM cleanup.                                                                                              | `30`                                                            |
 | `image.repository`                           |                                                                                                                                                                                           | `ghcr.io/openwallet-foundation/didcomm-mediator-credo/mediator` |
 | `image.pullPolicy`                           |                                                                                                                                                                                           | `Always`                                                        |
 | `image.tag`                                  | Overrides the image tag which defaults to the chart appVersion.                                                                                                                           | `fc575ad`                                                       |
@@ -187,7 +185,7 @@ The first start of the new version upgrades the wallet's storage, which can't be
 
 | Name                        | Description                                                                                | Value               |
 | --------------------------- | ------------------------------------------------------------------------------------------ | ------------------- |
-| `persistence.enabled`       | Store the mediator's home directory on a PersistentVolumeClaim. Requires a single replica. | `true`              |
+| `persistence.enabled`       | Store the mediator's home directory on a PersistentVolumeClaim. Requires a single SQLite replica; PostgreSQL wallets require this to be false. | `true`              |
 | `persistence.existingClaim` | Name of an existing PersistentVolumeClaim to use instead of creating one                   | `""`                |
 | `persistence.storageClass`  | Storage class of the PersistentVolumeClaim, the cluster default when empty                 | `""`                |
 | `persistence.accessModes`   | Access modes of the PersistentVolumeClaim                                                  | `["ReadWriteOnce"]` |
