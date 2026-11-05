@@ -1,14 +1,24 @@
 ## @section Mediator Settings
 ##
 
+global:
+  compatibility:
+    openshift:
+      ## @param global.compatibility.openshift.adaptSecurityContext Remove fixed user/group IDs on OpenShift: auto, force or disabled
+      adaptSecurityContext: auto
+
+## @param walletDatabaseType Backend declaration for validation and rollout defaults: auto, sqlite or postgres. Required for external backend configuration; does not configure the application.
+walletDatabaseType: auto
+
 ## @param replicaCount This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 
-## @param strategy Deployment update strategy. Use `type: Recreate` when no pod of the previous version may run alongside the new one, e.g. for a storage upgrade.
+## @param strategy Deployment update strategy override. Empty selects RollingUpdate for PostgreSQL or Recreate for SQLite. Use explicit Recreate for incompatible storage upgrades.
 ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 strategy: {}
 
-## @param terminationGracePeriodSeconds Seconds the mediator gets to release its live sessions and close connections after SIGTERM
+## @param terminationGracePeriodSeconds Pod termination budget; must exceed the mediator's 25-second shutdown deadline plus any preStop delay
+## The default leaves 5 seconds beyond the application deadline. Increase this if adding a preStop hook.
 terminationGracePeriodSeconds: 30
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
@@ -62,8 +72,8 @@ podLabels: {}
 ## @param podSecurityContext Pod Security Context
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 ##
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext:
+  fsGroup: 1001
 
 ## @param securityContext Container Security Context
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/

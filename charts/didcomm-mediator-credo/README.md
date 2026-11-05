@@ -52,7 +52,53 @@ By default the mediator keeps its wallet in a SQLite file under its home directo
 
 To run several replicas, store the wallet in PostgreSQL: set `ASKAR__DATABASE__TYPE=postgres` and the `ASKAR__DATABASE__*` connection variables in `environment`, set `persistence.enabled=false`, and configure the `networkPolicy` and `postgresql` sections. A shared message queue (`MESSAGE_PICKUP__STORAGE__TYPE=postgres` with `MESSAGE_PICKUP__STORAGE__*`) lets the replicas deliver each other's messages.
 
-On clusters that don't assign a group to pods, set `podSecurityContext.fsGroup` so the mediator can write to the volume.
+The chart defaults `podSecurityContext.fsGroup` to `1001` so supported volume drivers make the wallet volume writable by the mediator. Existing volumes and storage drivers that do not honor filesystem groups may require administrator-managed permissions.
+
+Security contexts use the shared Bitnami OpenShift compatibility helper. With `global.compatibility.openshift.adaptSecurityContext=auto`, detected OpenShift clusters omit fixed user/group IDs so the SCC can assign permitted IDs. For offline or GitOps rendering without OpenShift API discovery, set this option to `force`; use `disabled` to retain explicit IDs.
+
+### Externally configured wallet backends
+
+`walletDatabaseType` defaults to `auto`, inferring a literal `ASKAR__DATABASE__TYPE` or the application's SQLite default. When the backend comes from `valueFrom` or a `CONFIG` JSON file without a literal backend, Helm cannot inspect it: explicitly declare `walletDatabaseType: sqlite` or `postgres`, even for a single replica or an explicit strategy override. Multiple replicas or autoscaling require PostgreSQL and `persistence.enabled: false`. This declaration controls chart validation, rollout defaults and warnings; it does not configure the application. The external application configuration must select the declared backend. Contradictions with a literal `ASKAR__DATABASE__TYPE` are rejected.
+
+For example:
+
+```yaml
+walletDatabaseType: postgres
+persistence:
+  enabled: false
+replicaCount: 2
+environment:
+  - name: ASKAR__DATABASE__TYPE
+    valueFrom:
+      configMapKeyRef:
+        name: mediator-config
+        key: wallet-database-type
+```
+
+For mounted JSON configuration, replace the environment entry above with `CONFIG` pointing to the mounted file, which must configure `askar.database.type` as `postgres`. Mount it using `volumes` and `volumeMounts`. Preserve any other required environment entries when replacing the `environment` list.
+
+Run the chart's rendering regression checks with `ruby charts/didcomm-mediator-credo/ci/render_test.rb` from the repository root (requires Helm and Ruby with Minitest).
+
+## Rollout strategy
+
+With `strategy: {}`, the chart selects `RollingUpdate` for PostgreSQL and `Recreate` for SQLite, independently of persistence. SQLite uses non-overlapping updates to avoid concurrent access to the same wallet. `ReadWriteOnce` restricts mounts across nodes, not necessarily across pods, and does not provide this protection.
+
+An explicit `strategy` overrides automatic selection, including custom `rollingUpdate.maxSurge` and `rollingUpdate.maxUnavailable` settings. Do not configure overlapping rolling updates for a shared SQLite wallet.
+
+For incompatible wallet/storage upgrades, temporarily set:
+
+```yaml
+strategy:
+  type: Recreate
+```
+
+After the upgrade completes, remove the override to restore backend-aware defaults (rolling updates for PostgreSQL).
+
+## Shutdown
+
+The Credo 0.7 mediator releases queue resources before shutting down the agent on `SIGTERM`. Cleanup has a total deadline of 25 seconds; if it hangs, the mediator logs the active cleanup step and exits with code `1`. Repeated signals do not restart cleanup or extend the deadline.
+
+Keep `terminationGracePeriodSeconds` greater than 25 seconds plus any `preStop` delay. The default of 30 seconds leaves 5 seconds beyond the application deadline, and this chart does not configure a `preStop` hook. The watchdog requires a responsive Node.js event loop; Kubernetes remains responsible for terminating a process with a blocked event loop.
 
 ## Upgrading from chart 0.6.x
 
@@ -75,7 +121,7 @@ Chart 1.0 runs the Credo 0.7 mediator, which reads different environment variabl
 
 Deployments that kept the wallet in PostgreSQL must also set `persistence.enabled=false`.
 
-The first start of the new version upgrades the wallet's storage, which can't be undone. Back up the database first, and for that rollout set `strategy.type=Recreate` so no 0.6.x pod runs alongside it. Raise `startupProbe.failureThreshold` if the upgrade of a large wallet may take longer than the probe allows.
+The first start of the new version upgrades the wallet's storage, which can't be undone. Back up the database first, and for that rollout set `strategy.type=Recreate` so no 0.6.x pod runs alongside it. Raise `startupProbe.failureThreshold` if the upgrade of a large wallet may take longer than the probe allows. Remove the strategy override after the upgrade to restore backend-aware defaults.
 
 ## Parameters
 
@@ -84,8 +130,10 @@ The first start of the new version upgrades the wallet's storage, which can't be
 | Name                                         | Description                                                                                                                                                                               | Value                                                           |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | `replicaCount`                               | This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/                                              | `1`                                                             |
-| `strategy`                                   | Deployment update strategy. Use `type: Recreate` when no pod of the previous version may run alongside the new one, e.g. for a storage upgrade.                                           | `{}`                                                            |
-| `terminationGracePeriodSeconds`              | Seconds the mediator gets to release its live sessions and close connections after SIGTERM                                                                                                | `30`                                                            |
+| `walletDatabaseType`                         | Backend declaration for validation and rollout defaults: auto, sqlite or postgres; required for external backend configuration; does not configure the application | `auto` |
+| `global.compatibility.openshift.adaptSecurityContext` | Remove fixed user/group IDs on OpenShift: auto, force or disabled | `auto` |
+| `strategy`                                   | Deployment update strategy override. Empty selects RollingUpdate for PostgreSQL or Recreate for SQLite. Use explicit Recreate for incompatible storage upgrades. | `{}` |
+| `terminationGracePeriodSeconds`              | Pod termination budget; must exceed the mediator's 25-second shutdown deadline plus any preStop delay                                                                                     | `30`                                                            |
 | `image.repository`                           |                                                                                                                                                                                           | `ghcr.io/openwallet-foundation/didcomm-mediator-credo/mediator` |
 | `image.pullPolicy`                           |                                                                                                                                                                                           | `Always`                                                        |
 | `image.tag`                                  | Overrides the image tag which defaults to the chart appVersion.                                                                                                                           | `fc575ad`                                                       |
@@ -98,7 +146,7 @@ The first start of the new version upgrades the wallet's storage, which can't be
 | `serviceAccount.name`                        | Name of the service account to use. If not set and create is true, a name is generated using the fullname template.                                                                       | `""`                                                            |
 | `podAnnotations`                             | Map of annotations to add to the mediator pods                                                                                                                                            | `{}`                                                            |
 | `podLabels`                                  | Map of labels to add to the mediator pods                                                                                                                                                 | `{}`                                                            |
-| `podSecurityContext`                         | Pod Security Context                                                                                                                                                                      | `{}`                                                            |
+| `podSecurityContext`                         | Pod Security Context; defaults to filesystem group 1001 for writable wallet volumes | `{ fsGroup: 1001 }` |
 | `securityContext`                            | Container Security Context                                                                                                                                                                | `{}`                                                            |
 | `service.type`                               | Kubernetes Service type                                                                                                                                                                   | `ClusterIP`                                                     |
 | `service.port`                               |                                                                                                                                                                                           | `3000`                                                          |
