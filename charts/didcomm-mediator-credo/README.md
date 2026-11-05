@@ -48,7 +48,34 @@ kubectl delete secret,pvc --selector "app.kubernetes.io/instance"=my-release
 
 ## Persistence
 
-The mediator chart assumes a PostgreSQL deployment is available. The appropriate settings must be configured in the `environment`, `networkpolicy` and `postgresql` sections.
+By default the mediator keeps its wallet in a SQLite file under its home directory (`persistence.mountPath`), stored on a PersistentVolumeClaim. This supports a single replica only.
+
+To run several replicas, store the wallet in PostgreSQL: set `ASKAR__DATABASE__TYPE=postgres` and the `ASKAR__DATABASE__*` connection variables in `environment`, set `persistence.enabled=false`, and configure the `networkPolicy` and `postgresql` sections. A shared message queue (`MESSAGE_PICKUP__STORAGE__TYPE=postgres` with `MESSAGE_PICKUP__STORAGE__*`) lets the replicas deliver each other's messages.
+
+On clusters that don't assign a group to pods, set `podSecurityContext.fsGroup` so the mediator can write to the volume.
+
+## Upgrading from chart 0.6.x
+
+Chart 1.0 runs the Credo 0.7 mediator, which reads different environment variables. Rendering fails if `environment` still contains a variable from the table below.
+
+| 0.6.x                                                        | 1.0                                                                                                                                                              |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOG_LEVEL` (number, e.g. `"3"`)                              | `LOG_LEVEL`: `trace`, `debug`, `info`, `warn`, `error`, `fatal` or `off` (`"2"` was `debug`, `"3"` was `info`)                                                      |
+| `WALLET_NAME`                                                | `ASKAR__STORE_ID`                                                                                                                                                |
+| `WALLET_KEY` (chart secret)                                  | `ASKAR__STORE_KEY`, still from the chart secret's `wallet-key`                                                                                                     |
+| `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD`        | `ASKAR__DATABASE__HOST`, `ASKAR__DATABASE__USER`, `ASKAR__DATABASE__PASSWORD`, plus `ASKAR__DATABASE__TYPE=postgres`, without which the wallet is SQLite              |
+| `POSTGRES_ADMIN_USER`, `POSTGRES_ADMIN_PASSWORD`             | `ASKAR__DATABASE__ADMIN_USER`, `ASKAR__DATABASE__ADMIN_PASSWORD`                                                                                                 |
+| `PICKUP_TYPE`                                                | `MESSAGE_PICKUP__STORAGE__TYPE`: `credo` (default), `postgres` or `dynamodb`                                                                                      |
+| `PICKUP_STRATEGY`                                            | `MESSAGE_PICKUP__FORWARDING_STRATEGY`                                                                                                                            |
+| `PICKUP_SETTINGS` (chart secret's `pickup-connection-json`)  | `MESSAGE_PICKUP__STORAGE__HOST`, `__USER`, `__PASSWORD` and `__DATABASE`. For `{"useBaseConnection":true}`, repeat the wallet's database settings and use database `messagepickuprepository` |
+| `GOAL_CODE`                                                  | `INVITATION_GOAL_CODE`                                                                                                                                           |
+| `USE_PUSH_NOTIFICATIONS`, `FIREBASE_APPS` (chart secret)     | `pushNotifications.firebase.enabled=true`, which passes the chart secret's `firebase-apps` as `PUSH_NOTIFICATIONS__FIREBASE__PROJECTS`                            |
+| `PUSH_NOTIFICATION_TITLE`, `PUSH_NOTIFICATION_BODY`          | `PUSH_NOTIFICATIONS__FIREBASE__NOTIFICATION_TITLE`, `PUSH_NOTIFICATIONS__FIREBASE__NOTIFICATION_BODY`                                                            |
+| `NOTIFICATION_WEBHOOK_URL`                                   | `PUSH_NOTIFICATIONS__WEBHOOK_URL`                                                                                                                                |
+
+Deployments that kept the wallet in PostgreSQL must also set `persistence.enabled=false`.
+
+The first start of the new version upgrades the wallet's storage, which can't be undone. Back up the database first, and for that rollout set `strategy.type=Recreate` so no 0.6.x pod runs alongside it. Raise `startupProbe.failureThreshold` if the upgrade of a large wallet may take longer than the probe allows.
 
 ## Parameters
 
@@ -57,9 +84,11 @@ The mediator chart assumes a PostgreSQL deployment is available. The appropriate
 | Name                                         | Description                                                                                                                                                                               | Value                                                           |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | `replicaCount`                               | This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/                                              | `1`                                                             |
+| `strategy`                                   | Deployment update strategy. Use `type: Recreate` when no pod of the previous version may run alongside the new one, e.g. for a storage upgrade.                                           | `{}`                                                            |
+| `terminationGracePeriodSeconds`              | Seconds the mediator gets to release its live sessions and close connections after SIGTERM                                                                                                | `30`                                                            |
 | `image.repository`                           |                                                                                                                                                                                           | `ghcr.io/openwallet-foundation/didcomm-mediator-credo/mediator` |
 | `image.pullPolicy`                           |                                                                                                                                                                                           | `Always`                                                        |
-| `image.tag`                                  | Overrides the image tag which defaults to the chart appVersion.                                                                                                                           | `d9ff9cb`                                                       |
+| `image.tag`                                  | Overrides the image tag which defaults to the chart appVersion.                                                                                                                           | `fc575ad`                                                       |
 | `imagePullSecrets`                           |                                                                                                                                                                                           | `[]`                                                            |
 | `nameOverride`                               | String to override the helm chart name, second part of the prefix.                                                                                                                        | `""`                                                            |
 | `fullnameOverride`                           | String to fully override the helm chart name, full prefix. *Must be provided if using a custom release name that does not include the name of the helm chart (`didcomm-mediator-credo`).* | `""`                                                            |
@@ -84,7 +113,7 @@ The mediator chart assumes a PostgreSQL deployment is available. The appropriate
 | `networkPolicy.ingress.namespaceSelector`    | Namespace selector label that is allowed to access the Tenant proxy pods.                                                                                                                 | `{}`                                                            |
 | `networkPolicy.ingress.podSelector`          | Pod selector label that is allowed to access the Tenant proxy pods.                                                                                                                       | `{}`                                                            |
 | `resources`                                  | CPU/Memory resource requests/limits - unset by default                                                                                                                                    | `{}`                                                            |
-| `environment`                                | Variables to be passed to the container                                                                                                                                                   | `[]`                                                            |
+| `environment`                                | Variables to be passed to the container. See the mediator's README for every option.                                                                                                      | `[]`                                                            |
 | `livenessProbe`                              | Liveness probe configuration                                                                                                                                                              | `{}`                                                            |
 | `readinessProbe`                             | Readiness probe configuration                                                                                                                                                             | `{}`                                                            |
 | `startupProbe`                               | Startup probe configuration                                                                                                                                                               | `{}`                                                            |
@@ -92,8 +121,8 @@ The mediator chart assumes a PostgreSQL deployment is available. The appropriate
 | `autoscaling.minReplicas`                    | Minimum number of replicas                                                                                                                                                                | `1`                                                             |
 | `autoscaling.maxReplicas`                    | Maximum number of replicas                                                                                                                                                                | `100`                                                           |
 | `autoscaling.targetCPUUtilizationPercentage` | Target CPU utilization percentage                                                                                                                                                         | `80`                                                            |
-| `volumes`                                    | List of volume claims to be created                                                                                                                                                       | `[]`                                                            |
-| `volumeMounts`                               | List of volumes to be mounted in the container                                                                                                                                            | `[]`                                                            |
+| `volumes`                                    | Additional volumes for the mediator pod                                                                                                                                                   | `[]`                                                            |
+| `volumeMounts`                               | Additional volume mounts for the mediator container                                                                                                                                       | `[]`                                                            |
 | `nodeSelector`                               | Node labels for pods assignment                                                                                                                                                           | `{}`                                                            |
 | `tolerations`                                | Tolerations for pods assignment                                                                                                                                                           | `[]`                                                            |
 | `affinity`                                   | Affinity for pods assignment                                                                                                                                                              | `{}`                                                            |
@@ -106,3 +135,20 @@ The mediator chart assumes a PostgreSQL deployment is available. The appropriate
 | `postgresql.selectorLabels` | Labels selecting the postgresql resources to give the mediator pods access to. | `[]`    |
 | `postgresql.servicePort`    | PostgreSQL service port to be used in the network policy                       | `5432`  |
 
+### Persistence
+
+| Name                        | Description                                                                                | Value               |
+| --------------------------- | ------------------------------------------------------------------------------------------ | ------------------- |
+| `persistence.enabled`       | Store the mediator's home directory on a PersistentVolumeClaim. Requires a single replica. | `true`              |
+| `persistence.existingClaim` | Name of an existing PersistentVolumeClaim to use instead of creating one                   | `""`                |
+| `persistence.storageClass`  | Storage class of the PersistentVolumeClaim, the cluster default when empty                 | `""`                |
+| `persistence.accessModes`   | Access modes of the PersistentVolumeClaim                                                  | `["ReadWriteOnce"]` |
+| `persistence.size`          | Size of the PersistentVolumeClaim                                                          | `1Gi`               |
+| `persistence.annotations`   | Annotations for the PersistentVolumeClaim                                                  | `{}`                |
+| `persistence.mountPath`     | Mount path of the home directory, also set as HOME                                         | `/home/mediator`    |
+
+### Push notifications
+
+| Name                                 | Description                                                                                                                                                                                             | Value   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `pushNotifications.firebase.enabled` | Pass the Firebase projects from the chart secret's `firebase-apps` key. Requires PUSH_NOTIFICATIONS__FIREBASE__NOTIFICATION_TITLE and PUSH_NOTIFICATIONS__FIREBASE__NOTIFICATION_BODY in `environment`. | `false` |

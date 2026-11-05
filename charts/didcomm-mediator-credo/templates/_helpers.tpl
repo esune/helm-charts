@@ -148,3 +148,42 @@ Usage:
 {{- $default | b64enc -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Returns the literal value of a variable in .Values.environment, empty if unset or set with valueFrom.
+*/}}
+{{- define "mediator.environmentValue" -}}
+{{- $name := .name -}}
+{{- range .context.Values.environment -}}
+{{- if and (eq .name $name) (not (kindIs "invalid" .value)) -}}
+{{- .value -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Fails rendering for configurations the mediator would reject or silently ignore.
+*/}}
+{{- define "mediator.validateEnvironment" -}}
+{{- $legacy := list "WALLET_NAME" "WALLET_KEY" "POSTGRES_HOST" "POSTGRES_USER" "POSTGRES_PASSWORD" "POSTGRES_ADMIN_USER" "POSTGRES_ADMIN_PASSWORD" "PICKUP_TYPE" "PICKUP_STRATEGY" "PICKUP_SETTINGS" "USE_PUSH_NOTIFICATIONS" "PUSH_NOTIFICATION_TITLE" "PUSH_NOTIFICATION_BODY" "FIREBASE_APPS" "GOAL_CODE" "NOTIFICATION_WEBHOOK_URL" -}}
+{{- $names := list -}}
+{{- range .Values.environment -}}
+{{- if has .name $legacy -}}
+{{- fail (printf "environment variable %s is not read by the mediator since chart 1.0; see 'Upgrading from chart 0.6.x' in the chart README" .name) -}}
+{{- end -}}
+{{- $names = append $names .name -}}
+{{- end -}}
+{{- if regexMatch "^[0-9]+$" (include "mediator.environmentValue" (dict "name" "LOG_LEVEL" "context" .)) -}}
+{{- fail "LOG_LEVEL must be one of trace, debug, info, warn, error, fatal or off" -}}
+{{- end -}}
+{{- if and (ne (include "mediator.environmentValue" (dict "name" "ASKAR__DATABASE__TYPE" "context" .)) "postgres") (or .Values.autoscaling.enabled (gt (int .Values.replicaCount) 1)) -}}
+{{- fail "a SQLite wallet can't be shared between replicas: set ASKAR__DATABASE__TYPE=postgres in environment, or run a single replica without autoscaling" -}}
+{{- end -}}
+{{- if .Values.pushNotifications.firebase.enabled -}}
+{{- range list "PUSH_NOTIFICATIONS__FIREBASE__NOTIFICATION_TITLE" "PUSH_NOTIFICATIONS__FIREBASE__NOTIFICATION_BODY" -}}
+{{- if not (has . $names) -}}
+{{- fail (printf "pushNotifications.firebase.enabled requires %s in environment" .) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
