@@ -13,12 +13,11 @@ walletDatabaseType: auto
 ## @param replicaCount This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 
-## @param strategy Deployment update strategy override. Empty selects RollingUpdate for PostgreSQL or Recreate for SQLite. Use explicit Recreate for incompatible storage upgrades.
+## @param strategy Deployment update strategy override. Empty selects RollingUpdate for PostgreSQL (requires persistence.enabled=false) or Recreate for SQLite. Use explicit Recreate for incompatible storage upgrades.
 ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 strategy: {}
 
-## @param terminationGracePeriodSeconds Pod termination budget; must exceed the mediator's 25-second shutdown deadline plus any preStop delay
-## The default leaves 5 seconds beyond the application deadline. Increase this if adding a preStop hook.
+## @param terminationGracePeriodSeconds Kubernetes pod termination grace period. This does not add application-level SIGTERM cleanup.
 terminationGracePeriodSeconds: 30
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
@@ -267,7 +266,7 @@ postgresql:
 ## Not needed when the wallet is stored in PostgreSQL; an emptyDir is used when disabled.
 ##
 persistence:
-  ## @param persistence.enabled Store the mediator's home directory on a PersistentVolumeClaim. Requires a single replica.
+  ## @param persistence.enabled Store the mediator's home directory on a PersistentVolumeClaim. Requires a single SQLite replica; PostgreSQL wallets require this to be false.
   enabled: true
   ## @param persistence.existingClaim Name of an existing PersistentVolumeClaim to use instead of creating one
   existingClaim: ""

@@ -215,6 +215,9 @@ Fails rendering for configurations the mediator would reject or silently ignore.
 {{- if eq $backend "unknown" -}}
 {{- fail "externally configured wallets require walletDatabaseType=sqlite or postgres to select a safe rollout strategy; this declaration does not configure the application backend" -}}
 {{- end -}}
+{{- if and (eq $backend "postgres") .Values.persistence.enabled -}}
+{{- fail "PostgreSQL wallets require persistence.enabled=false: the chart PVC is for SQLite home-directory data and can stall rolling updates" -}}
+{{- end -}}
 {{- if and (eq $backend "sqlite") (or .Values.autoscaling.enabled (gt (int .Values.replicaCount) 1)) -}}
 {{- fail "a SQLite wallet can't be shared between replicas: set ASKAR__DATABASE__TYPE=postgres in environment, or run a single replica without autoscaling" -}}
 {{- end -}}

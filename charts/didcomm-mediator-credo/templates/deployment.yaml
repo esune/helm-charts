@@ -20,6 +20,8 @@ spec:
     {{- if eq (include "mediator.walletDatabaseType" .) "sqlite" }}
     # Prevent overlapping processes from accessing the SQLite wallet.
     type: Recreate
+    # Clear the API-server default that Helm may retain when upgrading an existing release.
+    rollingUpdate: null
     {{- else }}
     type: RollingUpdate
     {{- end }}

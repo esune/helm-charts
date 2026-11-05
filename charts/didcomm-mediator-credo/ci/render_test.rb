@@ -88,7 +88,20 @@ class MediatorRenderTest < Minitest::Test
       'environment' => [{ 'name' => 'ASKAR__DATABASE__TYPE', 'value' => 'postgres' }]
     )
     refute status.success?
-    assert_includes error, 'persistence.enabled requires a single replica'
+    assert_includes error, 'PostgreSQL wallets require persistence.enabled=false'
+  end
+
+  def test_postgres_requires_persistence_disabled
+    values = {
+      'walletDatabaseType' => 'postgres',
+      'environment' => [{ 'name' => 'ASKAR__DATABASE__TYPE', 'value' => 'postgres' }]
+    }
+    _, error, status = render(values)
+    refute status.success?
+    assert_includes error, 'PostgreSQL wallets require persistence.enabled=false'
+
+    values['persistence'] = { 'enabled' => false }
+    assert_equal 'RollingUpdate', deployment(values).dig('spec', 'strategy', 'type')
   end
 
   def test_unknown_backend_requires_declaration_even_with_strategy_override
@@ -104,20 +117,33 @@ class MediatorRenderTest < Minitest::Test
   end
 
   def test_backend_aware_strategy_defaults_do_not_depend_on_persistence
-    %w[sqlite postgres].each do |backend|
-      [true, false].each do |persistent|
+    { 'sqlite' => [true, false], 'postgres' => [false] }.each do |backend, persistence_values|
+      persistence_values.each do |persistent|
         values = {
           'environment' => [{ 'name' => 'ASKAR__DATABASE__TYPE', 'value' => backend }],
           'persistence' => { 'enabled' => persistent }
         }
         expected = backend == 'sqlite' ? 'Recreate' : 'RollingUpdate'
-        assert_equal({ 'type' => expected }, deployment(values).dig('spec', 'strategy'))
+        strategy = deployment(values).dig('spec', 'strategy')
+        assert_equal expected, strategy['type']
+        if backend == 'sqlite'
+          assert strategy.key?('rollingUpdate')
+          assert_nil strategy['rollingUpdate']
+        end
       end
       values = external_values.merge('walletDatabaseType' => backend)
       expected = backend == 'sqlite' ? 'Recreate' : 'RollingUpdate'
-      assert_equal({ 'type' => expected }, deployment(values).dig('spec', 'strategy'))
+      strategy = deployment(values).dig('spec', 'strategy')
+      assert_equal expected, strategy['type']
+      if backend == 'sqlite'
+        assert strategy.key?('rollingUpdate')
+        assert_nil strategy['rollingUpdate']
+      end
     end
-    assert_equal 'Recreate', deployment.dig('spec', 'strategy', 'type')
+    strategy = deployment.dig('spec', 'strategy')
+    assert_equal 'Recreate', strategy['type']
+    assert strategy.key?('rollingUpdate')
+    assert_nil strategy['rollingUpdate']
   end
 
   def test_explicit_strategy_overrides_are_preserved
